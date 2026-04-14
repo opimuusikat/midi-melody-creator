@@ -6,3 +6,6 @@ __pycache__/
 # Generated output (publish deliberately later)
 output/
 
+# Local packaging
+dist/
+
