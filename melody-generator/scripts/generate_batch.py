@@ -58,6 +58,10 @@ def main() -> int:
         2: int(tier_dist.get("tier2", 0)),
         3: int(tier_dist.get("tier3", 0)),
     }
+    if sum(tier_targets.values()) != total:
+        raise ValueError(
+            f"total_melodies ({total}) must equal sum(tier_distribution) ({sum(tier_targets.values())})."
+        )
 
     # Load tier configs (tier2/tier3 files may be added later; for smoke test we
     # can re-use tier1 if missing).
@@ -84,7 +88,11 @@ def main() -> int:
     for tier in (1, 2, 3):
         templates = get_templates_for_tier(tier)
         tier_cfg = tier_cfgs[tier]
-        for _ in range(tier_targets[tier]):
+        target = tier_targets[tier]
+
+        # Keep trying until we hit target or exceed a generous attempt budget.
+        attempt_budget = target * max_attempts
+        while per_tier_accepted[tier] < target and attempted[tier] < attempt_budget:
             attempted[tier] += 1
             template = templates[sequence_num % len(templates)]
             melody = generate_one_melody(
