@@ -9,6 +9,23 @@ import yaml
 from src.models import TierConfig
 
 
+def _expand_all_keys(*, include_modes: bool) -> list[dict[str, str]]:
+    tonics = ["C", "Db", "D", "Eb", "E", "F", "Gb", "G", "Ab", "A", "Bb", "B"]
+    keys: list[dict[str, str]] = []
+
+    for tonic in tonics:
+        keys.append({"tonic": tonic, "mode": "major"})
+        keys.append({"tonic": tonic, "mode": "minor"})
+
+    if include_modes:
+        modes = ["dorian", "phrygian", "lydian", "mixolydian"]
+        for tonic in tonics:
+            for mode in modes:
+                keys.append({"tonic": tonic, "mode": mode})
+
+    return keys
+
+
 def load_tier_config(path: str | Path) -> TierConfig:
     """
     Load a tier YAML file into a TierConfig dataclass.
@@ -21,6 +38,12 @@ def load_tier_config(path: str | Path) -> TierConfig:
     data = yaml.safe_load(p.read_text(encoding="utf-8"))
     if not isinstance(data, dict):
         raise ValueError(f"Tier config must be a mapping, got: {type(data).__name__}")
+
+    # Support shorthand: keys: "all" (+ include_modes flag).
+    if data.get("keys") == "all":
+        include_modes = bool(data.get("include_modes", False))
+        data = dict(data)
+        data["keys"] = _expand_all_keys(include_modes=include_modes)
 
     tier_fields = {f.name: f for f in fields(TierConfig)}
     kwargs: dict[str, Any] = {}

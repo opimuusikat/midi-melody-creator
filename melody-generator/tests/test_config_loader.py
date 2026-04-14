@@ -40,3 +40,42 @@ tritone_must_resolve_by_step: false
     assert "4/4" in cfg.meters
     assert cfg.chromatic_allowed is False
 
+
+def test_load_tier3_all_keys_with_modes_expands(tmp_path: Path):
+    yaml_text = """
+name: "Advanced"
+code: "T3"
+keys: "all"
+include_modes: true
+bar_counts: [1, 2, 3, 4]
+meters: ["4/4", "3/4", "2/4"]
+durations_normal: ["whole", "half", "quarter", "eighth"]
+durations_6_8: []
+range_semitones_max: 19
+allowed_scale_degrees: [1,2,3,4,5,6,7]
+chromatic_allowed: true
+chromatic_ratio_max: 0.30
+modal_mixture_allowed: true
+allowed_intervals_semitones: [1,2,3,4,5,6,7,8,9,10,11,12]
+forbidden_intervals: []
+max_consecutive_leaps: 3
+leap_compensation_required: false
+stepwise_ratio_min: 0.40
+start_scale_degrees: [1,2,3,4,5,6,7]
+end_scale_degrees: [1,2,3,4,5,6,7]
+cadence_types: ["authentic", "half", "deceptive", "plagal", "open"]
+contour_types: ["arch", "inverted-arch", "ascending", "descending", "wave", "plateau"]
+leading_tone_resolution_required: false
+prefer_chord_tones_on_strong_beats: false
+arch_contour_preference: 0.0
+syncopation_allowed: true
+tritone_must_resolve_by_step: true
+"""
+    p = tmp_path / "tier3.yaml"
+    p.write_text(yaml_text, encoding="utf-8")
+    cfg = load_tier_config(p)
+    # 12 tonics × (major+minor) + 12 tonics × 4 modes = 24 + 48 = 72
+    assert len(cfg.keys) == 72
+    assert {"tonic": "Db", "mode": "major"} in cfg.keys
+    assert {"tonic": "Gb", "mode": "mixolydian"} in cfg.keys
+

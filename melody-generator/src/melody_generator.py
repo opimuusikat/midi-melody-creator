@@ -15,15 +15,14 @@ from src.pitch_generator import generate_pitch_sequence
 from src.rhythm_generator import generate_rhythm
 from src.validator import validate_melody
 
-from music21 import key as m21key
 from music21 import pitch as m21pitch
 
-from src.music21_utils import tonic_to_music21
+from src.music21_utils import make_key_or_scale
 
 
 def _pitch_class_for_scale_degree(key_tonic: str, key_mode: str, degree: int) -> int:
-    k = m21key.Key(tonic_to_music21(key_tonic), key_mode)
-    p = k.pitchFromDegree(degree)
+    ks = make_key_or_scale(key_tonic, key_mode)
+    p = ks.pitchFromDegree(degree)
     return int(p.pitchClass)
 
 

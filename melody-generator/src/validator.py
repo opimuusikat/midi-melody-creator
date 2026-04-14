@@ -8,19 +8,27 @@ stepwise ratio thresholds, etc.). Generation can be imperfect; the validator is
 the final gate before accepting a melody into the corpus.
 """
 
-from music21 import key as m21key
 from music21 import pitch as m21pitch
 
 from src.models import Melody, TierConfig
 from src.pitch_generator import MAX_MIDI, MIN_MIDI
-from src.music21_utils import tonic_to_music21
+from src.music21_utils import make_key_or_scale
+from src.rhythm_generator import METER_BEATS_PER_BAR
 
 
 def _scale_degree(key_tonic: str, key_mode: str, midi_pitch: int) -> int:
-    k = m21key.Key(tonic_to_music21(key_tonic), key_mode)
+    k = make_key_or_scale(key_tonic, key_mode)
     p = m21pitch.Pitch()
     p.midi = midi_pitch
+    # Key and Scale both implement this.
     deg = k.getScaleDegreeFromPitch(p)
+    if deg is None:
+        # In flat keys, music21 may prefer flat spellings (Db) while a MIDI pitch
+        # defaults to a sharp spelling (C#). Try common enharmonics.
+        for enh in p.getAllCommonEnharmonics():
+            deg = k.getScaleDegreeFromPitch(enh)
+            if deg is not None:
+                break
     if deg is None:
         # Chromatic pitch (or mode mismatch)
         return 0
@@ -35,6 +43,38 @@ def validate_melody(melody: Melody, tier_config: TierConfig) -> tuple[bool, list
         return False, violations
 
     pitches = [n.midi_pitch for n in melody.notes]
+
+    # Student usefulness constraints (density + cadence approach)
+    if tier_config.require_stepwise_final_approach and len(pitches) >= 2:
+        final_approach = abs(pitches[-1] - pitches[-2])
+        if final_approach not in (1, 2):
+            violations.append(
+                f"Final approach into last note must be stepwise (1 or 2 semitones); got {final_approach}."
+            )
+
+    if tier_config.max_notes_per_beat is not None:
+        beats_per_bar = METER_BEATS_PER_BAR.get(melody.meter)
+        if beats_per_bar is None:
+            violations.append(f"Unsupported meter '{melody.meter}' for notes per beat density check.")
+        elif melody.bar_count <= 0:
+            violations.append("Invalid bar_count for notes per beat density check.")
+        else:
+            total_beats = melody.bar_count * beats_per_bar
+            notes_per_beat = len(melody.notes) / total_beats
+            if notes_per_beat > tier_config.max_notes_per_beat + 1e-9:
+                violations.append(
+                    f"Notes per beat density {notes_per_beat:.2f} exceeds cap {tier_config.max_notes_per_beat:.2f}."
+                )
+
+    if tier_config.max_notes_per_bar is not None:
+        if melody.bar_count <= 0:
+            violations.append("Invalid bar_count for notes per bar density check.")
+        else:
+            notes_per_bar = len(melody.notes) / melody.bar_count
+            if notes_per_bar > tier_config.max_notes_per_bar + 1e-9:
+                violations.append(
+                    f"Notes per bar density {notes_per_bar:.2f} exceeds cap {tier_config.max_notes_per_bar}."
+                )
 
     # 1. Global pitch range
     if any(p < MIN_MIDI or p > MAX_MIDI for p in pitches):

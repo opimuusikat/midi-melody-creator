@@ -18,6 +18,7 @@ def test_generate_one_melody_can_force_key():
         sequence_num=1,
         diversity_checker=dc,
         rng=rng,
+        max_attempts=200,
         forced_key={"tonic": "D", "mode": "major"},
     )
     assert m is not None

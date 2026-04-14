@@ -78,7 +78,26 @@ def main() -> int:
         else:
             tier_cfgs[t] = load_tier_config(tier_cfg_paths[1])
 
-    dc = DiversityChecker(max_similarity_threshold=max_sim)
+    dedupe_state_path = out_dir / "dedupe_state.json"
+    dc_by_tier: dict[int, DiversityChecker]
+    if dedupe_state_path.exists():
+        raw = json.loads(dedupe_state_path.read_text(encoding="utf-8"))
+        tiers_raw = raw.get("tiers", {}) if isinstance(raw, dict) else {}
+        dc_by_tier = {}
+        for tier in (1, 2, 3):
+            tier_state = tiers_raw.get(str(tier), {}) if isinstance(tiers_raw, dict) else {}
+            if isinstance(tier_state, dict):
+                dc_by_tier[tier] = DiversityChecker.from_dict(tier_state)
+            else:
+                dc_by_tier[tier] = DiversityChecker(max_similarity_threshold=max_sim)
+            dc_by_tier[tier].max_similarity_threshold = max_sim
+    else:
+        # Keep deduplication within each tier to avoid starving later tiers in a batch.
+        dc_by_tier = {
+            1: DiversityChecker(max_similarity_threshold=max_sim),
+            2: DiversityChecker(max_similarity_threshold=max_sim),
+            3: DiversityChecker(max_similarity_threshold=max_sim),
+        }
 
     sequence_num = 1
     accepted = 0
@@ -119,7 +138,7 @@ def main() -> int:
                 template,
                 batch_seed=master_seed,
                 sequence_num=sequence_num,
-                diversity_checker=dc,
+                diversity_checker=dc_by_tier[tier],
                 rng=None,
                 max_attempts=max_attempts,
                 forced_key=forced_key,
@@ -139,6 +158,17 @@ def main() -> int:
             per_tier_accepted[tier] += 1
             if forced_key_queue:
                 forced_key_queue.pop(0)
+            if per_tier_accepted[tier] % 50 == 0:
+                print(
+                    f"tier {tier}: accepted {per_tier_accepted[tier]}/{target} (attempted {attempted[tier]})",
+                    flush=True,
+                )
+
+        if per_tier_accepted[tier] != target:
+            raise RuntimeError(
+                f"Failed to reach tier {tier} target: accepted {per_tier_accepted[tier]} / {target} "
+                f"after {attempted[tier]} attempts."
+            )
 
     manifest = {
         "batch_id": batch_id,
@@ -150,6 +180,9 @@ def main() -> int:
         "ensure_key_coverage": ensure_key_coverage,
     }
     (out_dir / "manifest.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+
+    dedupe_state = {"version": 1, "tiers": {str(t): dc_by_tier[t].to_dict() for t in (1, 2, 3)}}
+    dedupe_state_path.write_text(json.dumps(dedupe_state, indent=2), encoding="utf-8")
 
     return 0
 
