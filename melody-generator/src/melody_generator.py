@@ -18,9 +18,11 @@ from src.validator import validate_melody
 from music21 import key as m21key
 from music21 import pitch as m21pitch
 
+from src.music21_utils import tonic_to_music21
+
 
 def _pitch_class_for_scale_degree(key_tonic: str, key_mode: str, degree: int) -> int:
-    k = m21key.Key(key_tonic, key_mode)
+    k = m21key.Key(tonic_to_music21(key_tonic), key_mode)
     p = k.pitchFromDegree(degree)
     return int(p.pitchClass)
 
@@ -120,6 +122,7 @@ def generate_one_melody(
     diversity_checker: DiversityChecker,
     rng: random.Random | None = None,
     max_attempts: int = 20,
+    forced_key: dict | None = None,
 ) -> Melody | None:
     """
     Try up to `max_attempts` times to produce a valid, non-duplicate melody.
@@ -134,7 +137,7 @@ def generate_one_melody(
         attempt_seed = hash((melody_seed, attempt, base_rng.random()))
         local_rng = random.Random(attempt_seed)
 
-        key_choice = local_rng.choice(tier_config.keys)
+        key_choice = forced_key or local_rng.choice(tier_config.keys)
         key_tonic = key_choice["tonic"]
         key_mode = key_choice["mode"]
 
@@ -164,8 +167,8 @@ def generate_one_melody(
             rng=local_rng,
             starting_pitch=starting_pitch,
         )
-        # v1 enforcement for T1: ensure it can end on tonic if required.
-        if 1 in tier_config.end_scale_degrees:
+        # v1 enforcement: only force tonic if tonic is the *only* allowed ending degree.
+        if tier_config.end_scale_degrees == [1]:
             pitches = _force_ending_tonic(pitches, key_tonic, key_mode, tier_config)
 
         notes = _build_notes(pitches, rhythm, meter)

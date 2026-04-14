@@ -22,6 +22,7 @@ from music21 import key as m21key
 from music21 import pitch as m21pitch
 
 from src.models import TierConfig
+from src.music21_utils import tonic_to_music21
 
 
 MIN_MIDI = 57  # A3
@@ -55,7 +56,7 @@ def _key_scale_midi_set(key_tonic: str, key_mode: str) -> set[int]:
 
     # music21 Key can represent major/minor cleanly; for other modes we fallback
     # to Key + mode string if possible.
-    k = m21key.Key(key_tonic, key_mode)
+    k = m21key.Key(tonic_to_music21(key_tonic), key_mode)
     pitch_classes = {p.pitchClass for p in k.getPitches()}
 
     allowed: set[int] = set()

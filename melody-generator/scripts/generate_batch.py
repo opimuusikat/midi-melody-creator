@@ -85,16 +85,35 @@ def main() -> int:
     per_tier_accepted = {1: 0, 2: 0, 3: 0}
     attempted = {1: 0, 2: 0, 3: 0}
 
+    ensure_key_coverage = bool(cfg.get("ensure_key_coverage", False))
+
     for tier in (1, 2, 3):
         templates = get_templates_for_tier(tier)
         tier_cfg = tier_cfgs[tier]
         target = tier_targets[tier]
 
+        if ensure_key_coverage and target < len(tier_cfg.keys):
+            raise ValueError(
+                f"Tier {tier} target ({target}) must be >= number of keys ({len(tier_cfg.keys)}) "
+                "when ensure_key_coverage is true."
+            )
+
         # Keep trying until we hit target or exceed a generous attempt budget.
         attempt_budget = target * max_attempts
+        if ensure_key_coverage:
+            # Key coverage is stricter: allow more retries, especially for T3.
+            attempt_budget *= 10
+
+        # If requested, force at least one melody per key for each tier.
+        forced_key_queue: list[dict] = []
+        if ensure_key_coverage:
+            forced_key_queue = list(tier_cfg.keys)
+
         while per_tier_accepted[tier] < target and attempted[tier] < attempt_budget:
             attempted[tier] += 1
             template = templates[sequence_num % len(templates)]
+            # Important: only advance the forced-key queue on *success*.
+            forced_key = forced_key_queue[0] if forced_key_queue else None
             melody = generate_one_melody(
                 tier_cfg,
                 template,
@@ -103,6 +122,7 @@ def main() -> int:
                 diversity_checker=dc,
                 rng=None,
                 max_attempts=max_attempts,
+                forced_key=forced_key,
             )
             sequence_num += 1
             if melody is None:
@@ -117,6 +137,8 @@ def main() -> int:
 
             accepted += 1
             per_tier_accepted[tier] += 1
+            if forced_key_queue:
+                forced_key_queue.pop(0)
 
     manifest = {
         "batch_id": batch_id,
@@ -125,6 +147,7 @@ def main() -> int:
         "accepted_total": accepted,
         "accepted_by_tier": per_tier_accepted,
         "attempted_by_tier": attempted,
+        "ensure_key_coverage": ensure_key_coverage,
     }
     (out_dir / "manifest.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")
 

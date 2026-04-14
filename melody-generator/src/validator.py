@@ -13,10 +13,11 @@ from music21 import pitch as m21pitch
 
 from src.models import Melody, TierConfig
 from src.pitch_generator import MAX_MIDI, MIN_MIDI
+from src.music21_utils import tonic_to_music21
 
 
 def _scale_degree(key_tonic: str, key_mode: str, midi_pitch: int) -> int:
-    k = m21key.Key(key_tonic, key_mode)
+    k = m21key.Key(tonic_to_music21(key_tonic), key_mode)
     p = m21pitch.Pitch()
     p.midi = midi_pitch
     deg = k.getScaleDegreeFromPitch(p)
