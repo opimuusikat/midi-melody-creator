@@ -1,0 +1,52 @@
+name: "Advanced"
+code: "T3"
+
+# v1: keep explicit list reasonably small; can be expanded to "all" later.
+keys:
+  - {tonic: "C", mode: "major"}
+  - {tonic: "Db", mode: "major"}
+  - {tonic: "D", mode: "major"}
+  - {tonic: "Eb", mode: "major"}
+  - {tonic: "E", mode: "major"}
+  - {tonic: "F", mode: "major"}
+  - {tonic: "Gb", mode: "major"}
+  - {tonic: "G", mode: "major"}
+  - {tonic: "Ab", mode: "major"}
+  - {tonic: "A", mode: "major"}
+  - {tonic: "Bb", mode: "major"}
+  - {tonic: "B", mode: "major"}
+  - {tonic: "A", mode: "minor"}
+  - {tonic: "C", mode: "minor"}
+  - {tonic: "D", mode: "minor"}
+  - {tonic: "E", mode: "minor"}
+  - {tonic: "F", mode: "minor"}
+  - {tonic: "G", mode: "minor"}
+
+bar_counts: [1, 2, 3, 4]
+meters: ["4/4", "3/4", "2/4"]
+durations_normal: ["whole", "half", "quarter", "eighth"]
+durations_6_8: []
+
+range_semitones_max: 19
+allowed_scale_degrees: [1, 2, 3, 4, 5, 6, 7]
+chromatic_allowed: true
+chromatic_ratio_max: 0.30
+modal_mixture_allowed: true
+
+allowed_intervals_semitones: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+forbidden_intervals: []
+max_consecutive_leaps: 3
+leap_compensation_required: false
+stepwise_ratio_min: 0.40
+
+start_scale_degrees: [1, 2, 3, 4, 5, 6, 7]
+end_scale_degrees: [1, 2, 3, 4, 5, 6, 7]
+cadence_types: ["authentic", "half", "deceptive", "plagal", "open"]
+contour_types: ["arch", "inverted-arch", "ascending", "descending", "wave", "plateau"]
+leading_tone_resolution_required: false
+
+prefer_chord_tones_on_strong_beats: false
+arch_contour_preference: 0.0
+syncopation_allowed: true
+tritone_must_resolve_by_step: true
+

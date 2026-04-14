@@ -1,0 +1,7 @@
+music21==9.1.0
+pretty_midi==0.2.10
+numpy
+pyyaml
+pytest
+setuptools<81
+
