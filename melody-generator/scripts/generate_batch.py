@@ -35,6 +35,50 @@ def _load_batch_config(path: str | Path) -> dict:
     return data
 
 
+def _load_dedupe_state_by_tier(dedupe_state_path: Path, *, max_sim: float) -> dict[int, DiversityChecker]:
+    """
+    Backward-compatible loader for dedupe state.
+
+    Current format:
+      {"version": 1, "tiers": {"1": <DiversityChecker dict>, "2": ..., "3": ...}}
+
+    Legacy format:
+      <DiversityChecker dict> (single-tier state; treated as tier1)
+    """
+    raw = json.loads(dedupe_state_path.read_text(encoding="utf-8"))
+
+    dc_by_tier: dict[int, DiversityChecker] = {}
+
+    if isinstance(raw, dict) and "tiers" in raw:
+        tiers_raw = raw.get("tiers", {})
+        for tier in (1, 2, 3):
+            tier_state = tiers_raw.get(str(tier), {}) if isinstance(tiers_raw, dict) else {}
+            if isinstance(tier_state, dict):
+                dc_by_tier[tier] = DiversityChecker.from_dict(tier_state)
+            else:
+                dc_by_tier[tier] = DiversityChecker(max_similarity_threshold=max_sim)
+            dc_by_tier[tier].max_similarity_threshold = max_sim
+        return dc_by_tier
+
+    # Legacy: DiversityChecker state dict at the top-level.
+    if isinstance(raw, dict) and "seen_hashes" in raw and "seen_parsons_rhythm" in raw:
+        dc_by_tier = {
+            1: DiversityChecker.from_dict(raw),
+            2: DiversityChecker(max_similarity_threshold=max_sim),
+            3: DiversityChecker(max_similarity_threshold=max_sim),
+        }
+        for tier in (1, 2, 3):
+            dc_by_tier[tier].max_similarity_threshold = max_sim
+        return dc_by_tier
+
+    # Fallback: treat as missing/unusable state.
+    return {
+        1: DiversityChecker(max_similarity_threshold=max_sim),
+        2: DiversityChecker(max_similarity_threshold=max_sim),
+        3: DiversityChecker(max_similarity_threshold=max_sim),
+    }
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--config", required=True, help="Path to batch YAML config")
@@ -81,16 +125,7 @@ def main() -> int:
     dedupe_state_path = out_dir / "dedupe_state.json"
     dc_by_tier: dict[int, DiversityChecker]
     if dedupe_state_path.exists():
-        raw = json.loads(dedupe_state_path.read_text(encoding="utf-8"))
-        tiers_raw = raw.get("tiers", {}) if isinstance(raw, dict) else {}
-        dc_by_tier = {}
-        for tier in (1, 2, 3):
-            tier_state = tiers_raw.get(str(tier), {}) if isinstance(tiers_raw, dict) else {}
-            if isinstance(tier_state, dict):
-                dc_by_tier[tier] = DiversityChecker.from_dict(tier_state)
-            else:
-                dc_by_tier[tier] = DiversityChecker(max_similarity_threshold=max_sim)
-            dc_by_tier[tier].max_similarity_threshold = max_sim
+        dc_by_tier = _load_dedupe_state_by_tier(dedupe_state_path, max_sim=max_sim)
     else:
         # Keep deduplication within each tier to avoid starving later tiers in a batch.
         dc_by_tier = {

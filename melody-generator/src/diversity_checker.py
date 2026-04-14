@@ -48,6 +48,64 @@ class DiversityChecker:
     seen_hashes: set[str] = field(default_factory=set)
     seen_parsons_rhythm: dict[tuple[str, tuple[str, ...]], list[list[int]]] = field(default_factory=dict)
 
+    def to_dict(self) -> dict:
+        """
+        Return a JSON-serializable representation of the dedupe state.
+
+        Intentionally compact:
+        - seen_hashes stored as a list of hex digests
+        - seen_parsons_rhythm stored as a list of entries (since JSON has no tuple keys)
+        """
+        entries: list[dict] = []
+        for (parsons, rhythm_sig), candidates in self.seen_parsons_rhythm.items():
+            # Candidates order is not semantically important; sort for deterministic serialization.
+            candidates_sorted = sorted((tuple(intervals) for intervals in candidates))
+            entries.append(
+                {
+                    "parsons": parsons,
+                    "rhythm": list(rhythm_sig),
+                    "candidates": [list(intervals) for intervals in candidates_sorted],
+                }
+            )
+
+        # Deterministic ordering for stable JSON snapshots.
+        entries.sort(key=lambda e: (e["parsons"], tuple(e["rhythm"])))
+
+        return {
+            "version": 1,
+            "max_similarity_threshold": float(self.max_similarity_threshold),
+            "seen_hashes": sorted(self.seen_hashes),
+            "seen_parsons_rhythm": entries,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "DiversityChecker":
+        version = int(data.get("version", 1))
+        if version != 1:
+            raise ValueError(f"Unsupported DiversityChecker state version: {version}")
+
+        dc = cls(max_similarity_threshold=float(data.get("max_similarity_threshold", 0.20)))
+        seen_hashes = data.get("seen_hashes", [])
+        if isinstance(seen_hashes, list):
+            dc.seen_hashes = set(str(x) for x in seen_hashes)
+
+        entries = data.get("seen_parsons_rhythm", [])
+        if isinstance(entries, list):
+            for entry in entries:
+                if not isinstance(entry, dict):
+                    continue
+                parsons = entry.get("parsons")
+                rhythm = entry.get("rhythm")
+                candidates = entry.get("candidates", [])
+                if not isinstance(parsons, str) or not isinstance(rhythm, list) or not isinstance(candidates, list):
+                    continue
+                key = (parsons, tuple(str(x) for x in rhythm))
+                dc.seen_parsons_rhythm[key] = [
+                    [int(x) for x in intervals] for intervals in candidates if isinstance(intervals, list)
+                ]
+
+        return dc
+
     def hash_melody(self, intervals: list[int], rhythm: list[str]) -> str:
         key = f"{intervals}|{rhythm}"
         return hashlib.sha256(key.encode("utf-8")).hexdigest()

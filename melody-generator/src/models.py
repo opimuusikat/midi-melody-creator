@@ -1,10 +1,24 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import sys
 from typing import Any
 
 
-@dataclass(frozen=True, slots=True)
+def _frozen_dataclass(*, slots: bool = True):
+    """
+    Compatibility wrapper for dataclass(slots=...).
+
+    - Python 3.10+: supports frozen+slots
+    - Python 3.9: slots not supported, so we fall back to frozen-only
+    """
+
+    if slots and sys.version_info >= (3, 10):
+        return dataclass(frozen=True, slots=True)
+    return dataclass(frozen=True)
+
+
+@_frozen_dataclass()
 class Note:
     """A single note in a melody."""
 
@@ -14,7 +28,7 @@ class Note:
     bar_number: int  # 1-indexed
 
 
-@dataclass(frozen=True, slots=True)
+@_frozen_dataclass()
 class Melody:
     """A complete generated melody."""
 
@@ -31,7 +45,7 @@ class Melody:
     template_id: str  # which template was used
 
 
-@dataclass(frozen=True, slots=True)
+@_frozen_dataclass()
 class TierConfig:
     """Loaded from YAML — all rules for one tier."""
 
@@ -69,5 +83,10 @@ class TierConfig:
     arch_contour_preference: float = 0.0
     syncopation_allowed: bool = False
     tritone_must_resolve_by_step: bool = False
+
+    # Student-usefulness constraints (tier-specific, optional)
+    max_notes_per_beat: float | None = None
+    max_notes_per_bar: int | None = None
+    require_stepwise_final_approach: bool = False
 
 

@@ -40,3 +40,7 @@ arch_contour_preference: 0.60
 syncopation_allowed: false
 tritone_must_resolve_by_step: false
 
+# Student-usefulness constraints
+require_stepwise_final_approach: true
+max_notes_per_beat: 1.25
+

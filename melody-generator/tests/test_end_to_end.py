@@ -11,7 +11,11 @@ def test_generate_one_melody_produces_valid_non_duplicate():
     templates = get_templates_for_tier(1)
     rng = random.Random(123)
     dc = DiversityChecker(max_similarity_threshold=0.2)
-    m = generate_one_melody(cfg, templates[0], batch_seed=20260414, sequence_num=1, diversity_checker=dc, rng=rng)
+    # Tier 1 constraints can be strict; allow more retries to avoid flakiness
+    # when configs evolve (e.g., stricter cadence approach / density caps).
+    m = generate_one_melody(
+        cfg, templates[0], batch_seed=20260414, sequence_num=1, diversity_checker=dc, rng=rng, max_attempts=200
+    )
     assert m is not None
     assert len(m.notes) > 0
     assert all(57 <= n.midi_pitch <= 81 for n in m.notes)

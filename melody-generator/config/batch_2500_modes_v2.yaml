@@ -1,0 +1,22 @@
+batch_id: "batch_2500_modes_v3"
+master_seed: 20260414
+total_melodies: 2500
+
+tier_distribution:
+  tier1: 1000
+  tier2: 900
+  tier3: 600
+
+meter_weights:
+  "4/4": 0.40
+  "3/4": 0.35
+  "2/4": 0.25
+
+output_directory: "output/batch_2500_modes_v3"
+
+quality_controls:
+  max_generation_attempts: 20
+  max_similarity_threshold: 0.20
+
+ensure_key_coverage: true
+
