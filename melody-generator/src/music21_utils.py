@@ -49,6 +49,7 @@ def make_key_or_scale(tonic: str, mode: str):
         "phrygian": m21scale.PhrygianScale,
         "lydian": m21scale.LydianScale,
         "mixolydian": m21scale.MixolydianScale,
+        "locrian": m21scale.LocrianScale,
     }
     cls = mode_to_scale.get(m)
     if cls is None:

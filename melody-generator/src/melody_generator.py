@@ -122,6 +122,7 @@ def generate_one_melody(
     rng: random.Random | None = None,
     max_attempts: int = 20,
     forced_key: dict | None = None,
+    key_group_weights: dict[str, float] | None = None,
 ) -> Melody | None:
     """
     Try up to `max_attempts` times to produce a valid, non-duplicate melody.
@@ -136,7 +137,34 @@ def generate_one_melody(
         attempt_seed = hash((melody_seed, attempt, base_rng.random()))
         local_rng = random.Random(attempt_seed)
 
-        key_choice = forced_key or local_rng.choice(tier_config.keys)
+        if forced_key is not None:
+            key_choice = forced_key
+        else:
+            if key_group_weights and isinstance(key_group_weights, dict):
+                tonal_keys: list[dict] = []
+                modal_keys: list[dict] = []
+                for k in tier_config.keys:
+                    m = str(k.get("mode", "")).lower()
+                    if m in ("major", "minor"):
+                        tonal_keys.append(k)
+                    else:
+                        modal_keys.append(k)
+
+                w_tonal = float(key_group_weights.get("tonal", 0.0))
+                w_modal = float(key_group_weights.get("modal", 0.0))
+
+                # If one group is unavailable or weights are degenerate, fall back to uniform choice.
+                if tonal_keys and modal_keys and (w_tonal > 0.0 or w_modal > 0.0):
+                    group = local_rng.choices(
+                        ["tonal", "modal"],
+                        weights=[max(0.0, w_tonal), max(0.0, w_modal)],
+                        k=1,
+                    )[0]
+                    key_choice = local_rng.choice(tonal_keys if group == "tonal" else modal_keys)
+                else:
+                    key_choice = local_rng.choice(tier_config.keys)
+            else:
+                key_choice = local_rng.choice(tier_config.keys)
         key_tonic = key_choice["tonic"]
         key_mode = key_choice["mode"]
 

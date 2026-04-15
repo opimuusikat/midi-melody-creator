@@ -28,10 +28,11 @@ from src.template_library import get_templates_for_tier
 
 
 def _load_batch_config(path: str | Path) -> dict:
-    p = Path(path)
+    p = Path(path).resolve()
     data = yaml.safe_load(p.read_text(encoding="utf-8"))
     if not isinstance(data, dict):
         raise ValueError("batch_config must be a mapping")
+    data["_config_dir"] = str(p.parent)
     return data
 
 
@@ -85,6 +86,7 @@ def main() -> int:
     args = ap.parse_args()
 
     cfg = _load_batch_config(args.config)
+    config_dir = Path(cfg["_config_dir"])
     batch_id = cfg["batch_id"]
     master_seed = int(cfg["master_seed"])
     total = int(cfg["total_melodies"])
@@ -107,20 +109,27 @@ def main() -> int:
             f"total_melodies ({total}) must equal sum(tier_distribution) ({sum(tier_targets.values())})."
         )
 
-    # Load tier configs (tier2/tier3 files may be added later; for smoke test we
-    # can re-use tier1 if missing).
-    tier_cfg_paths = {
-        1: Path("config/tier1.yaml"),
-        2: Path("config/tier2.yaml"),
-        3: Path("config/tier3.yaml"),
+    # Load tier configs. Defaults live under melody-generator/config/.
+    root = PROJECT_ROOT
+    tier_cfg_paths: dict[int, Path] = {
+        1: root / "config" / "tier1.yaml",
+        2: root / "config" / "tier2.yaml",
+        3: root / "config" / "tier3.yaml",
     }
+    over = cfg.get("tier_config_paths")
+    if isinstance(over, dict):
+        for k, rel in over.items():
+            tier_num = int(str(k))
+            p = Path(str(rel))
+            tier_cfg_paths[tier_num] = p if p.is_absolute() else (config_dir / p)
 
     tier_cfgs = {}
     for t in (1, 2, 3):
-        if tier_cfg_paths[t].exists():
-            tier_cfgs[t] = load_tier_config(tier_cfg_paths[t])
+        pth = tier_cfg_paths[t]
+        if pth.exists():
+            tier_cfgs[t] = load_tier_config(pth)
         else:
-            tier_cfgs[t] = load_tier_config(tier_cfg_paths[1])
+            tier_cfgs[t] = load_tier_config(root / "config" / "tier1.yaml")
 
     dedupe_state_path = out_dir / "dedupe_state.json"
     dc_by_tier: dict[int, DiversityChecker]
@@ -140,6 +149,8 @@ def main() -> int:
     attempted = {1: 0, 2: 0, 3: 0}
 
     ensure_key_coverage = bool(cfg.get("ensure_key_coverage", False))
+    key_group_weights_global = cfg.get("key_group_weights")
+    key_group_weights_by_tier = cfg.get("key_group_weights_by_tier")
 
     for tier in (1, 2, 3):
         templates = get_templates_for_tier(tier)
@@ -168,6 +179,14 @@ def main() -> int:
             template = templates[sequence_num % len(templates)]
             # Important: only advance the forced-key queue on *success*.
             forced_key = forced_key_queue[0] if forced_key_queue else None
+            key_group_weights = None
+            if isinstance(key_group_weights_by_tier, dict) and str(tier) in key_group_weights_by_tier:
+                key_group_weights = key_group_weights_by_tier.get(str(tier))
+            elif isinstance(key_group_weights_by_tier, dict) and tier in key_group_weights_by_tier:
+                key_group_weights = key_group_weights_by_tier.get(tier)
+            elif isinstance(key_group_weights_global, dict):
+                key_group_weights = key_group_weights_global
+
             melody = generate_one_melody(
                 tier_cfg,
                 template,
@@ -177,6 +196,7 @@ def main() -> int:
                 rng=None,
                 max_attempts=max_attempts,
                 forced_key=forced_key,
+                key_group_weights=key_group_weights,
             )
             sequence_num += 1
             if melody is None:

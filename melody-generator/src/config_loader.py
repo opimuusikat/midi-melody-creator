@@ -18,7 +18,7 @@ def _expand_all_keys(*, include_modes: bool) -> list[dict[str, str]]:
         keys.append({"tonic": tonic, "mode": "minor"})
 
     if include_modes:
-        modes = ["dorian", "phrygian", "lydian", "mixolydian"]
+        modes = ["dorian", "phrygian", "lydian", "mixolydian", "locrian"]
         for tonic in tonics:
             for mode in modes:
                 keys.append({"tonic": tonic, "mode": mode})

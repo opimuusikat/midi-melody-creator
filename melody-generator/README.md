@@ -29,3 +29,15 @@ brew install python@3.11
 "$HOME/.venvs/melody-generator/bin/python" scripts/generate_batch.py --config config/batch_config.yaml
 ```
 
+## Analyze a MIDI corpus (reference transcriptions)
+
+Aggregates features for arbitrary `.mid` directories (parallel workers). Outputs `records.jsonl`, `summary.json`, and `summary.md`.
+
+```bash
+"$HOME/.venvs/melody-generator/bin/python" scripts/analyze_midi_corpus.py --input-dir "../midi for analyiz" --out-dir "../midi for analyiz/_corpus_analysis" --workers 6
+```
+
+Corpus priors (empirical + theory pointers, **not** tier replacements): `config/melody_corpus_prior.yaml`. See repo root `AGENTS.md`.
+
+Example **300-melody** corpus-informed batch + QC/deep analysis + comparison to a default-tier batch and the MIDI corpus: `config/batch_300_corpus_priors.yaml`, then `scripts/compare_melody_summaries.py` (see `AGENTS.md`).
+
