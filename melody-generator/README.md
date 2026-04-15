@@ -41,3 +41,8 @@ Corpus priors (empirical + theory pointers, **not** tier replacements): `config/
 
 Example **300-melody** corpus-informed batch + QC/deep analysis + comparison to a default-tier batch and the MIDI corpus: `config/batch_300_corpus_priors.yaml`, then `scripts/compare_melody_summaries.py` (see `AGENTS.md`).
 
+## Website integration (OpiMuusikat)
+
+If you are generating dictations for the OpiMuusikat website, follow the strict output contract:
+`docs/opi-dictation-integration-rulebook.md`.
+
