@@ -1,0 +1,66 @@
+# Tier 1 variant informed by midi corpus priors (melody_corpus_prior.yaml):
+# - Heavy 4/4 weight (~81% vs uniform 33%)
+# - Slightly higher arch contour preference (common contour motifs in corpus U/D patterns)
+
+name: "Beginner"
+code: "T1"
+
+keys:
+  - {tonic: "C", mode: "major"}
+  - {tonic: "G", mode: "major"}
+  - {tonic: "D", mode: "major"}
+  - {tonic: "F", mode: "major"}
+  - {tonic: "Bb", mode: "major"}
+
+bar_counts: [1, 2]
+# 17× 4/4, 2× 3/4, 2× 2/4 → ~81% common-time (corpus meter_distribution_top)
+meters:
+  - "4/4"
+  - "4/4"
+  - "4/4"
+  - "4/4"
+  - "4/4"
+  - "4/4"
+  - "4/4"
+  - "4/4"
+  - "4/4"
+  - "4/4"
+  - "4/4"
+  - "4/4"
+  - "4/4"
+  - "4/4"
+  - "4/4"
+  - "4/4"
+  - "4/4"
+  - "3/4"
+  - "3/4"
+  - "2/4"
+  - "2/4"
+durations_normal: ["quarter", "eighth"]
+durations_6_8: []
+
+range_semitones_max: 12
+allowed_scale_degrees: [1, 2, 3, 4, 5, 6, 7]
+chromatic_allowed: false
+chromatic_ratio_max: 0.0
+modal_mixture_allowed: false
+
+allowed_intervals_semitones: [1, 2, 3, 4, 5, 7]
+forbidden_intervals: [6, 10, 11]
+max_consecutive_leaps: 1
+leap_compensation_required: true
+stepwise_ratio_min: 0.70
+
+start_scale_degrees: [1, 3, 5]
+end_scale_degrees: [1]
+cadence_types: ["authentic"]
+contour_types: ["arch", "ascending", "descending"]
+leading_tone_resolution_required: true
+
+prefer_chord_tones_on_strong_beats: true
+arch_contour_preference: 0.68
+syncopation_allowed: false
+tritone_must_resolve_by_step: false
+
+require_stepwise_final_approach: true
+max_notes_per_beat: 1.25

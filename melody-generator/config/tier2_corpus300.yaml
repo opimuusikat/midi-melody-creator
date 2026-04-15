@@ -1,0 +1,73 @@
+# Tier 2 variant: corpus-like meter mix (~71% 4/4) + unchanged tonal/end rules
+# (deceptive cadences still need scale degree 3 in allowed endings).
+
+name: "Intermediate"
+code: "T2"
+
+keys:
+  - {tonic: "C", mode: "major"}
+  - {tonic: "G", mode: "major"}
+  - {tonic: "D", mode: "major"}
+  - {tonic: "A", mode: "major"}
+  - {tonic: "E", mode: "major"}
+  - {tonic: "F", mode: "major"}
+  - {tonic: "Bb", mode: "major"}
+  - {tonic: "Eb", mode: "major"}
+  - {tonic: "A", mode: "minor"}
+  - {tonic: "E", mode: "minor"}
+  - {tonic: "D", mode: "minor"}
+  - {tonic: "G", mode: "minor"}
+  - {tonic: "B", mode: "minor"}
+  - {tonic: "D", mode: "dorian"}
+  - {tonic: "E", mode: "phrygian"}
+  - {tonic: "F", mode: "lydian"}
+  - {tonic: "G", mode: "mixolydian"}
+
+bar_counts: [2, 3, 4]
+meters:
+  - "4/4"
+  - "4/4"
+  - "4/4"
+  - "4/4"
+  - "4/4"
+  - "4/4"
+  - "4/4"
+  - "4/4"
+  - "4/4"
+  - "4/4"
+  - "4/4"
+  - "4/4"
+  - "4/4"
+  - "4/4"
+  - "4/4"
+  - "3/4"
+  - "3/4"
+  - "3/4"
+  - "2/4"
+  - "2/4"
+  - "2/4"
+durations_normal: ["whole", "half", "quarter", "eighth"]
+durations_6_8: []
+
+range_semitones_max: 16
+allowed_scale_degrees: [1, 2, 3, 4, 5, 6, 7]
+chromatic_allowed: true
+chromatic_ratio_max: 0.10
+modal_mixture_allowed: false
+
+allowed_intervals_semitones: [1, 2, 3, 4, 5, 7, 8, 9, 12]
+forbidden_intervals: [6, 10, 11]
+max_consecutive_leaps: 2
+leap_compensation_required: true
+stepwise_ratio_min: 0.55
+
+start_scale_degrees: [1, 2, 3, 5]
+end_scale_degrees: [1, 3, 5]
+cadence_types: ["authentic", "half", "deceptive"]
+contour_types: ["arch", "inverted-arch", "ascending", "descending", "wave"]
+leading_tone_resolution_required: true
+
+prefer_chord_tones_on_strong_beats: true
+arch_contour_preference: 0.0
+syncopation_allowed: false
+tritone_must_resolve_by_step: false
