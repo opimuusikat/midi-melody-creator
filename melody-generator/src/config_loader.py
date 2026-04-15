@@ -18,7 +18,9 @@ def _expand_all_keys(*, include_modes: bool) -> list[dict[str, str]]:
         keys.append({"tonic": tonic, "mode": "minor"})
 
     if include_modes:
-        modes = ["dorian", "phrygian", "lydian", "mixolydian", "locrian"]
+        # Keep in sync with website-facing dictation rulebook (v1): tier 2 adds
+        # dorian/mixolydian and tier 3 adds phrygian/lydian.
+        modes = ["dorian", "phrygian", "lydian", "mixolydian"]
         for tonic in tonics:
             for mode in modes:
                 keys.append({"tonic": tonic, "mode": mode})

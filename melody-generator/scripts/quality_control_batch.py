@@ -6,6 +6,9 @@ musically sane for the monophonic exercise dataset.
 
 Usage:
   python scripts/quality_control_batch.py --batch-dir output/batch_2500_modes_v2
+
+OpiMuusikat dictation (strict MIDI + minimum JSON), see docs/opi-dictation-integration-rulebook.md:
+  python scripts/quality_control_batch.py --batch-dir output/my_batch --dictation-mode
 """
 
 from __future__ import annotations
@@ -66,6 +69,218 @@ def _bar_length_quarter(meter_num: int, meter_den: int) -> float:
 
 def _is_close(a: float, b: float, *, tol: float = 1e-6) -> bool:
     return abs(a - b) <= tol
+
+
+# OpiMuusikat dictation v1: whole / half / quarter / eighth only (quarterLength).
+_DICTATION_ALLOWED_QUARTER_LENGTHS: tuple[float, ...] = (4.0, 2.0, 1.0, 0.5)
+_DICTATION_METERS_V1: frozenset[str] = frozenset({"2/4", "3/4", "4/4"})
+
+
+def _dictation_quarter_length_allowed(dur: float, *, tol: float = 1e-4) -> bool:
+    return any(abs(dur - a) <= tol for a in _DICTATION_ALLOWED_QUARTER_LENGTHS)
+
+
+def _resolve_meter_bars_dictation(
+    parsed: dict | None, md: dict | None
+) -> tuple[int, int, int] | None:
+    """Return (meter_num, meter_den, bar_count) from filename parse or JSON rhythmic."""
+    if parsed:
+        return int(parsed["meter_num"]), int(parsed["meter_den"]), int(parsed["bars"])
+    if isinstance(md, dict):
+        rh = md.get("rhythmic")
+        if isinstance(rh, dict):
+            m = rh.get("meter")
+            bc = rh.get("bar_count")
+            if isinstance(m, str) and "/" in m and isinstance(bc, int):
+                parts = m.split("/")
+                if len(parts) == 2:
+                    try:
+                        return int(parts[0]), int(parts[1]), bc
+                    except ValueError:
+                        return None
+    return None
+
+
+def _opi_dictation_rulebook_issues(
+    *,
+    notes: list[m21note.Note],
+    parsed: dict | None,
+    md: dict | None,
+) -> list[Issue]:
+    """
+    Enforce docs/opi-dictation-integration-rulebook.md (MIDI + minimum JSON).
+
+    Requires monophonic note stream (chords/overlaps checked elsewhere).
+    """
+    issues: list[Issue] = []
+
+    if md is not None:
+        rh = md.get("rhythmic") if isinstance(md.get("rhythmic"), dict) else None
+        if not isinstance(rh, dict):
+            issues.append(
+                Issue(
+                    "FAIL",
+                    "dictation.json.rhythmic.missing",
+                    "dictation-mode requires JSON.rhythmic object with meter and bar_count.",
+                )
+            )
+        else:
+            if not rh.get("meter"):
+                issues.append(
+                    Issue("FAIL", "dictation.json.rhythmic.meter_missing", "JSON rhythmic.meter is required.")
+                )
+            bc = rh.get("bar_count")
+            if not isinstance(bc, int) or not (1 <= bc <= 4):
+                issues.append(
+                    Issue(
+                        "FAIL",
+                        "dictation.json.rhythmic.bar_count_invalid",
+                        "JSON rhythmic.bar_count must be an integer 1..4.",
+                    )
+                )
+
+        diff = md.get("difficulty") if isinstance(md.get("difficulty"), dict) else None
+        if not isinstance(diff, dict):
+            issues.append(
+                Issue("FAIL", "dictation.json.difficulty.missing", "dictation-mode requires JSON.difficulty.tier.")
+            )
+        else:
+            tier = diff.get("tier")
+            if not isinstance(tier, int) or tier not in (1, 2, 3):
+                issues.append(
+                    Issue(
+                        "FAIL",
+                        "dictation.json.difficulty.tier_invalid",
+                        "JSON difficulty.tier must be an integer 1..3.",
+                    )
+                )
+
+        if isinstance(md.get("rhythmic"), dict) and isinstance(md.get("difficulty"), dict):
+            rh = md["rhythmic"]
+            if isinstance(rh.get("bar_count"), int) and isinstance(diff.get("tier"), int):
+                # Filename vs JSON consistency when both exist
+                if parsed:
+                    fn_bars = int(parsed["bars"])
+                    if rh["bar_count"] != fn_bars:
+                        issues.append(
+                            Issue(
+                                "FAIL",
+                                "dictation.json.bars.filename_mismatch",
+                                f'JSON rhythmic.bar_count {rh["bar_count"]} != filename bars {fn_bars}.',
+                            )
+                        )
+                    fn_meter = f'{int(parsed["meter_num"])}/{int(parsed["meter_den"])}'
+                    if rh.get("meter") and str(rh["meter"]) != fn_meter:
+                        issues.append(
+                            Issue(
+                                "FAIL",
+                                "dictation.json.meter.filename_mismatch",
+                                f'JSON rhythmic.meter "{rh.get("meter")}" != filename meter {fn_meter}.',
+                            )
+                        )
+
+    resolved = _resolve_meter_bars_dictation(parsed, md)
+    if resolved is None:
+        issues.append(
+            Issue(
+                "FAIL",
+                "dictation.meter_unresolved",
+                "Could not resolve meter/bar_count from filename or JSON (need one source).",
+            )
+        )
+        return issues
+
+    meter_num, meter_den, bars = resolved
+    meter_s = f"{meter_num}/{meter_den}"
+    if meter_s not in _DICTATION_METERS_V1:
+        issues.append(
+            Issue(
+                "FAIL",
+                "dictation.meter.not_allowed_v1",
+                f"Meter must be one of 2/4, 3/4, 4/4 (got {meter_s}).",
+            )
+        )
+
+    if not (1 <= bars <= 4):
+        issues.append(
+            Issue("FAIL", "dictation.bar_count.out_of_range", f"bar_count must be 1..4 (got {bars}).")
+        )
+
+    bar_len = _bar_length_quarter(meter_num, meter_den)
+    expected_total = bars * bar_len
+
+    items = sorted(((float(n.offset), float(n.quarterLength)) for n in notes), key=lambda x: x[0])
+    tol_gap = 1e-3
+    eps_bar = 1e-9
+
+    for i, (off, dur) in enumerate(items):
+        if not _dictation_quarter_length_allowed(dur):
+            issues.append(
+                Issue(
+                    "FAIL",
+                    "dictation.duration.not_whitelisted",
+                    f"Note {i} quarterLength {dur} is not whole/half/quarter/eighth.",
+                )
+            )
+
+        a = int(math.floor((off + eps_bar) / bar_len))
+        b = int(math.floor((off + dur - eps_bar) / bar_len))
+        if a != b:
+            issues.append(
+                Issue(
+                    "FAIL",
+                    "dictation.bar_crossing",
+                    f"Note {i} crosses a bar boundary (offset={off:.3f}q, dur={dur:.3f}q, bar_len={bar_len}).",
+                )
+            )
+
+    if items:
+        if items[0][0] > tol_gap:
+            issues.append(
+                Issue(
+                    "FAIL",
+                    "dictation.contiguous.leading_gap",
+                    f"First note starts at {items[0][0]:.3f}q (expected 0).",
+                )
+            )
+        for i in range(1, len(items)):
+            prev_off, prev_dur = items[i - 1]
+            prev_end = prev_off + prev_dur
+            off, _dur = items[i]
+            if off > prev_end + tol_gap:
+                issues.append(
+                    Issue(
+                        "FAIL",
+                        "dictation.contiguous.gap",
+                        f"Gap between notes {i - 1} and {i}: {off - prev_end:.3f}q.",
+                    )
+                )
+            if off < prev_end - tol_gap:
+                issues.append(
+                    Issue(
+                        "FAIL",
+                        "dictation.contiguous.overlap",
+                        f"Overlap between notes {i - 1} and {i}: {prev_end - off:.3f}q.",
+                    )
+                )
+
+    if not _is_close(float(_note_end_time_quarter_from_items(items)), expected_total, tol=1e-2):
+        issues.append(
+            Issue(
+                "FAIL",
+                "dictation.fill.mismatch",
+                f"Timeline fill {float(_note_end_time_quarter_from_items(items)):.3f}q != expected {expected_total:.3f}q "
+                f"({bars} bars of {meter_s}).",
+            )
+        )
+
+    return issues
+
+
+def _note_end_time_quarter_from_items(items: list[tuple[float, float]]) -> float:
+    if not items:
+        return 0.0
+    return max(off + dur for off, dur in items)
 
 
 @dataclass(frozen=True)
@@ -141,7 +356,7 @@ def _extract_tempo_bpm(s: m21stream.Stream) -> float | None:
     return None
 
 
-def qc_one(midi_path: Path, json_path: Path | None) -> list[Issue]:
+def qc_one(midi_path: Path, json_path: Path | None, *, dictation_mode: bool = False) -> list[Issue]:
     issues: list[Issue] = []
     stem = midi_path.stem
 
@@ -289,6 +504,9 @@ def qc_one(midi_path: Path, json_path: Path | None) -> list[Issue]:
     if lo < 36 or hi > 96:
         issues.append(Issue("WARN", "midi.pitch.range", f"Pitch range is {lo}..{hi} MIDI (unusual)."))
 
+    if dictation_mode:
+        issues.extend(_opi_dictation_rulebook_issues(notes=notes, parsed=parsed, md=md))
+
     return issues
 
 
@@ -296,6 +514,11 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--batch-dir", required=True, help="Path to output batch directory")
     ap.add_argument("--max-examples", type=int, default=20, help="Max examples to print per issue code")
+    ap.add_argument(
+        "--dictation-mode",
+        action="store_true",
+        help="Enforce OpiMuusikat dictation v1 contract (see docs/opi-dictation-integration-rulebook.md).",
+    )
     args = ap.parse_args()
 
     batch_dir = Path(args.batch_dir)
@@ -313,7 +536,11 @@ def main() -> int:
     for midi_path in midi_files:
         totals["files"] += 1
         json_path = midi_path.with_suffix(".json")
-        issues = qc_one(midi_path, json_path if json_path.exists() else None)
+        issues = qc_one(
+            midi_path,
+            json_path if json_path.exists() else None,
+            dictation_mode=bool(args.dictation_mode),
+        )
         if not issues:
             continue
 
@@ -333,6 +560,8 @@ def main() -> int:
                 entry["examples"].append(midi_path.name)
 
     print(f"Batch: {batch_dir}")
+    if args.dictation_mode:
+        print("Mode: dictation (OpiMuusikat v1 — see docs/opi-dictation-integration-rulebook.md)")
     print(f"Files: {totals['files']} | FAIL files: {totals['fail_files']} | WARN-only files: {totals['warn_files']}")
 
     if not by_code:

@@ -1,0 +1,18 @@
+batch_id: "dictation_smoke_v1"
+master_seed: 12345
+total_melodies: 9
+output_directory: "output/_dictation_smoke_v1"
+
+# Keep this tiny; we only want a quick rulebook compliance smoke-test.
+tier_distribution:
+  tier1: 3
+  tier2: 3
+  tier3: 3
+
+quality_controls:
+  max_generation_attempts: 30
+  max_similarity_threshold: 0.25
+
+# Optional: can be enabled for larger batches.
+ensure_key_coverage: false
+

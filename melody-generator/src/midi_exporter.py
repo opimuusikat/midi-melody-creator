@@ -15,8 +15,20 @@ from src.rhythm_generator import DURATION_BEATS
 
 
 def export_midi(melody: Melody, filepath: str | Path, *, tempo_bpm: int = 90) -> None:
-    pm = pretty_midi.PrettyMIDI(initial_tempo=float(tempo_bpm))
+    # Use a PPQ that represents 1/8 notes cleanly to avoid downstream parsers
+    # reconstructing non-whitelisted durations from tick rounding.
+    pm = pretty_midi.PrettyMIDI(resolution=480, initial_tempo=float(tempo_bpm))
     inst = pretty_midi.Instrument(program=0)  # Acoustic Grand Piano
+
+    # Encode meter explicitly so "bar boundary" is well-defined for consumers.
+    try:
+        num_s, den_s = str(melody.meter).split("/")
+        pm.time_signature_changes = [
+            pretty_midi.TimeSignature(int(num_s), int(den_s), 0.0),
+        ]
+    except Exception:
+        # Best-effort: if meter is malformed, still export monophonic timing.
+        pass
 
     seconds_per_beat = 60.0 / float(tempo_bpm)
     current_time = 0.0
