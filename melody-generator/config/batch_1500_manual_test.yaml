@@ -1,0 +1,25 @@
+# 1500 melodies for manual testing (OpiMuusikat / dictation-style export).
+# Uses corpus-informed tier YAMLs (meter mix, T1 arch bump, T3 strong-beat chord tones).
+# Pair output: *.mid + *.json (run QC with: --dictation-mode).
+
+batch_id: "batch_1500_manual_test"
+master_seed: 20260416
+total_melodies: 1500
+output_directory: "output/batch_1500_manual_test"
+
+tier_distribution:
+  tier1: 500
+  tier2: 500
+  tier3: 500
+
+tier_config_paths:
+  1: "tier1_corpus300.yaml"
+  2: "tier2_corpus300.yaml"
+  3: "tier3_corpus300.yaml"
+
+quality_controls:
+  max_generation_attempts: 40
+  max_similarity_threshold: 0.22
+
+# Set true to force at least one melody per key in each tier (slower, stricter).
+ensure_key_coverage: false
