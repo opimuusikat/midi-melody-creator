@@ -10,6 +10,7 @@ Input batch folders currently look like:
 This script reorganizes into:
   <out>/<batch_id>/
     manifest.json
+    dedupe_state.json  (if present in input)
     tier1/major|minor|modal/
     tier2/major|minor|modal/
     tier3/major|minor|modal/
@@ -47,7 +48,12 @@ def organize_batch(*, input_dir: Path, output_dir: Path, move: bool) -> None:
     if manifest_src.exists():
         shutil.copy2(manifest_src, output_dir / "manifest.json")
 
-    json_files = [p for p in input_dir.glob("*.json") if p.name != "manifest.json"]
+    dedupe_src = input_dir / "dedupe_state.json"
+    if dedupe_src.exists():
+        shutil.copy2(dedupe_src, output_dir / "dedupe_state.json")
+
+    skip_json = {"manifest.json", "dedupe_state.json"}
+    json_files = [p for p in input_dir.glob("*.json") if p.name not in skip_json]
     for jp in json_files:
         data = json.loads(jp.read_text(encoding="utf-8"))
         tier = int(data["difficulty"]["tier"])

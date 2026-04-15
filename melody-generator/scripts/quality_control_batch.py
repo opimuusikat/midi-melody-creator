@@ -519,13 +519,18 @@ def main() -> int:
         action="store_true",
         help="Enforce OpiMuusikat dictation v1 contract (see docs/opi-dictation-integration-rulebook.md).",
     )
+    ap.add_argument(
+        "--recursive",
+        action="store_true",
+        help="Find *.mid under batch-dir recursively (e.g. after organize_batch.py).",
+    )
     args = ap.parse_args()
 
     batch_dir = Path(args.batch_dir)
     if not batch_dir.exists() or not batch_dir.is_dir():
         raise SystemExit(f"Not a directory: {batch_dir}")
 
-    midi_files = sorted(batch_dir.glob("*.mid"))
+    midi_files = sorted(batch_dir.rglob("*.mid") if args.recursive else batch_dir.glob("*.mid"))
     if not midi_files:
         print("No .mid files found.")
         return 2
